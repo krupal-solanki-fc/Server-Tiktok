@@ -858,42 +858,105 @@
       return `content_${Date.now()}`;
     }
 
-    // Track event via TikTok Pixel (client-side)
-    function trackViaPixel(eventName, eventData, eventId) {
+    // SHA-256 hash function (client-side) - REQUIRED by TikTok
+    async function sha256Hash(str) {
+      if (!str) return null;
+      const msgBuffer = new TextEncoder().encode(str.trim().toLowerCase());
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Identify user with TikTok Pixel (call BEFORE tracking events)
+    async function identifyUser(userData) {
+      if (!window.ttq) {
+        console.warn('TikTok Pixel not loaded - cannot identify user');
+        return false;
+      }
+
+      const identifyData = {};
+      
+      // Hash PII data on client side (REQUIRED by TikTok)
+      if (userData.email) {
+        identifyData.email = await sha256Hash(userData.email);
+      }
+      if (userData.phone) {
+        identifyData.phone_number = await sha256Hash(userData.phone);
+      }
+      if (userData.externalId) {
+        identifyData.external_id = await sha256Hash(userData.externalId);
+      }
+
+      if (Object.keys(identifyData).length > 0) {
+        console.log('[TikTok Pixel] Identifying user:', identifyData);
+        window.ttq.identify(identifyData);
+        return true;
+      }
+      return false;
+    }
+
+    // Track event via TikTok Pixel (client-side) - TikTok's official format
+    async function trackViaPixel(eventName, eventData, eventId) {
       if (!window.ttq) {
         console.warn('TikTok Pixel not loaded');
         return { success: false, message: 'Pixel not loaded' };
       }
 
-      // Event properties (what you're tracking)
-      const properties = {
-        // Content parameters
+      // First, identify the user if we have PII data
+      if (eventData.email || eventData.phone || eventData.externalId) {
+        await identifyUser({
+          email: eventData.email,
+          phone: eventData.phone,
+          externalId: eventData.externalId
+        });
+      }
+
+      // Build contents array (TikTok's required format)
+      const contents = [{
         content_id: eventData.content_id || generateContentId(),
         content_type: eventData.content_type || 'product',
-        content_name: eventData.content_name || 'Test Product'
+        content_name: eventData.content_name || 'Test Product',
+        content_category: eventData.content_category || 'general',
+        price: eventData.value ? Number(eventData.value) : undefined,
+        quantity: eventData.quantity ? Number(eventData.quantity) : 1,
+        brand: eventData.brand || undefined
+      }];
+
+      // Event properties (TikTok's official format)
+      const properties = {
+        contents: contents,
+        value: eventData.value ? Number(eventData.value) : undefined,
+        currency: eventData.currency ? eventData.currency.toUpperCase() : 'USD',
+        description: eventData.description || undefined,
+        status: eventData.status || undefined
       };
-      
-      // Add optional parameters
-      if (eventData.value) properties.value = Number(eventData.value);
-      if (eventData.currency) properties.currency = eventData.currency.toUpperCase();
-      if (eventData.quantity) properties.quantity = Number(eventData.quantity);
+
+      // Remove undefined values
+      Object.keys(properties).forEach(key => 
+        properties[key] === undefined && delete properties[key]
+      );
+      contents[0] = Object.fromEntries(
+        Object.entries(contents[0]).filter(([_, v]) => v !== undefined)
+      );
 
       // Options object with event_id for deduplication
-      // TikTok Pixel requires event_id in the OPTIONS parameter (3rd argument)
       const options = {
         event_id: eventId
       };
 
-      console.log('[TikTok Pixel] Tracking:', eventName, 'Properties:', properties, 'Options:', options);
+      console.log('[TikTok Pixel] Tracking:', eventName);
+      console.log('[TikTok Pixel] Properties:', JSON.stringify(properties, null, 2));
+      console.log('[TikTok Pixel] Options:', options);
       
       // CORRECT FORMAT: ttq.track(eventName, properties, options)
       window.ttq.track(eventName, properties, options);
       
       return { 
         success: true, 
-        eventId, 
-        contentId: properties.content_id,
-        message: 'Event sent via Pixel with event_id in options' 
+        eventId,
+        identified: !!(eventData.email || eventData.phone),
+        contentId: contents[0].content_id,
+        message: 'Event sent via Pixel (TikTok official format)' 
       };
     }
 
@@ -1008,7 +1071,8 @@
         if (trackingMode === 'pixel' || trackingMode === 'both') {
           if (pixelLoaded) {
             // Pass the event_id to the pixel for deduplication
-            const pixelResult = trackViaPixel(eventName, eventData, eventId);
+            // trackViaPixel is now async because it calls ttq.identify() with hashed data
+            const pixelResult = await trackViaPixel(eventName, eventData, eventId);
             results.pixel = pixelResult;
           } else {
             results.pixel = { success: false, message: 'Pixel not loaded - enter Pixel ID first' };
