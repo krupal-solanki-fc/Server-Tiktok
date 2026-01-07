@@ -1,5 +1,6 @@
 import express from "express";
 import axios from "axios";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
@@ -120,99 +121,76 @@ app.get("/tiktok-events-test", async (req, res) => {
   }
 });
 
+
+
+const hash = (v) =>
+  crypto.createHash("sha256").update(v.trim().toLowerCase()).digest("hex");
+
 app.post("/test-track-tiktok", async (req, res) => {
-    try {
-      const {
-        pixelId,
-        accessToken,
-        testEventCode,
-        event = "PageView",
-        eventId,
-        url,
-        ip,
-        userAgent,
-        ttp,
-        ttclid,
-        email,
-        phone,
-        firstName,
-        lastName,
-        currency,
-        value
-      } = req.body;
-  
-      // Basic validation
-      if (!pixelId || !accessToken) {
-        return res.status(400).json({
-          error: "pixelId and accessToken are required"
-        });
-      }
-  
-      const eventData = {
-        event,
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: eventId || `test_${Date.now()}`,
-        page: {
-          url: url || "https://example.com"
-        },
-        user: {
-          ip: ip || req.ip,
-          user_agent: userAgent || req.get("User-Agent")
-        },
-        properties: {}
-      };
-  
-      // Optional identifiers
-      if (ttp) eventData.user.ttp = ttp;
-      if (ttclid) eventData.user.ttclid = ttclid;
-  
-      // Hashed identifiers (TikTok requires arrays)
-      if (email) eventData.user.email = [email];
-      if (phone) eventData.user.phone = [phone];
-      if (firstName) eventData.user.first_name = [firstName];
-      if (lastName) eventData.user.last_name = [lastName];
-  
-      // Properties
-      if (currency) eventData.properties.currency = currency;
-      if (value) eventData.properties.value = Number(value);
-  
-      const payload = {
-        pixel_code: pixelId,
-        event_source: "web",
-        events: [eventData]
-      };
-  
-      // Test mode (strongly recommended)
-      if (testEventCode) {
-        payload.test_event_code = testEventCode;
-      }
-  
-      const tiktokResponse = await axios.post(
-        "https://business-api.tiktok.com/open_api/v1.3/event/track/",
-        payload,
-        {
-          headers: {
-            "Access-Token": accessToken,
-            "Content-Type": "application/json"
-          },
-          timeout: 5000
-        }
-      );
-  
-      res.json({
-        success: true,
-        request: payload,
-        tiktokResponse: tiktokResponse.data
-      });
-    } catch (err) {
-      res.status(500).json({
-        success: false,
-        error: err.message,
-        tiktokError: err.response?.data
+  try {
+    const {
+      pixelId,
+      accessToken,
+      testEventCode,
+      event = "PageView",
+      url,
+      email,
+      value,
+      currency
+    } = req.body;
+
+    if (!pixelId || !accessToken) {
+      return res.status(400).json({
+        error: "pixelId and accessToken are required"
       });
     }
-  });
-  
+
+    const payload = {
+      pixel_code: pixelId,
+      event_source: "web",
+      test_event_code: testEventCode,
+      events: [
+        {
+          event,
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: `test_${Date.now()}`,
+          page: {
+            url: url || "https://example.com"
+          },
+          user: {
+            user_agent: req.get("User-Agent") || "Mozilla/5.0",
+            ip: req.ip,
+            ...(email && { email: [hash(email)] })
+          },
+          properties: {
+            ...(currency && { currency }),
+            ...(value && { value: Number(value) })
+          }
+        }
+      ]
+    };
+
+    const response = await axios.post(
+      "https://business-api.tiktok.com/open_api/v1.3/event/track/",
+      payload,
+      {
+        headers: {
+          "Access-Token": accessToken,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    res.json({ success: true, data: response.data });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      tiktokError: err.response?.data
+    });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
