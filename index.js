@@ -139,15 +139,16 @@ app.post("/test-track-tiktok", async (req, res) => {
       currency
     } = req.body;
 
-    if (!pixelId || !accessToken) {
-      return res.status(400).json({
-        error: "pixelId and accessToken are required"
-      });
-    }
+    // if (!pixelId || !accessToken) {
+    //   return res.status(400).json({
+    //     error: "pixelId and accessToken are required"
+    //   });
+    // }
 
     const payload = {
-      pixel_code: pixelId,
+    //   pixel_code: pixelId,
       event_source: "web",
+      event_source_id:pixelId,
       test_event_code: testEventCode,
       events: [
         {
