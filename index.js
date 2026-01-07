@@ -150,7 +150,7 @@ app.post("/test-track-tiktok", async (req, res) => {
       event_source: "web",
       event_source_id:pixelId,
       test_event_code: testEventCode,
-      events: [
+      data: [
         {
           event,
           event_time: Math.floor(Date.now() / 1000),
