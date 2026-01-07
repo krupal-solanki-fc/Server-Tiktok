@@ -4,66 +4,93 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 /**
- * Health check
+ * Root health check
  */
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
-    message: "TikTok test server running"
+    service: "tiktok-connectivity-test",
+    timestamp: new Date().toISOString()
   });
 });
 
 /**
- * Check server public IP & region
+ * Robust IP + Region check
+ * Uses multiple providers with fallback
  */
 app.get("/ip-check", async (req, res) => {
-  try {
-    const response = await axios.get("https://ipinfo.io/json", {
-      timeout: 5000
-    });
-    res.json(response.data);
-  } catch (err) {
-    res.status(500).json({
-      error: "IP check failed",
-      details: err.message
-    });
+  const providers = [
+    {
+      name: "ifconfig.me",
+      url: "https://ifconfig.me/all.json"
+    },
+    {
+      name: "ip-api",
+      url: "http://ip-api.com/json"
+    }
+  ];
+
+  for (const provider of providers) {
+    try {
+      const response = await axios.get(provider.url, {
+        timeout: 5000
+      });
+
+      return res.json({
+        provider: provider.name,
+        data: response.data
+      });
+    } catch (err) {
+      // try next provider
+    }
   }
+
+  res.status(500).json({
+    error: "All IP providers failed",
+    hint: "Outbound networking may be blocked"
+  });
 });
 
 /**
- * Test TikTok Business API DNS + HTTPS
- * (No auth required endpoint)
+ * TikTok Business API connectivity test
+ * 401 / 403 = SUCCESS (means reachable)
  */
-app.get("/tiktok-dns-test", async (req, res) => {
+app.get("/tiktok-business-test", async (req, res) => {
   try {
     const response = await axios.get(
       "https://business-api.tiktok.com/open_api/v1.3/pixel/list/",
       {
         timeout: 5000,
         headers: {
-          "User-Agent": "Render-Test-Server"
+          "User-Agent": "Render-TikTok-Test"
         },
         validateStatus: () => true
       }
     );
 
     res.json({
-      status: "reachable",
-      httpStatus: response.status
+      reachable: true,
+      httpStatus: response.status,
+      interpretation:
+        response.status === 401 || response.status === 403
+          ? "SUCCESS: TikTok API reachable (auth expected)"
+          : "Unexpected status but network reachable"
     });
   } catch (err) {
     res.status(500).json({
-      status: "failed",
-      error: err.message
+      reachable: false,
+      error: err.message,
+      interpretation: "Network / DNS / TLS failure"
     });
   }
 });
 
 /**
- * OPTIONAL: Test TikTok Events API (no data sent)
+ * TikTok Events API connectivity test
+ * Does NOT send real events
  */
 app.get("/tiktok-events-test", async (req, res) => {
   try {
@@ -77,13 +104,18 @@ app.get("/tiktok-events-test", async (req, res) => {
     );
 
     res.json({
-      status: "reachable",
-      httpStatus: response.status
+      reachable: true,
+      httpStatus: response.status,
+      interpretation:
+        response.status >= 400 && response.status < 500
+          ? "SUCCESS: Events API reachable (auth/data expected)"
+          : "Unexpected response"
     });
   } catch (err) {
     res.status(500).json({
-      status: "failed",
-      error: err.message
+      reachable: false,
+      error: err.message,
+      interpretation: "Network / DNS / TLS failure"
     });
   }
 });
