@@ -58,11 +58,45 @@ app.get("/api", (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: [
       "GET /api - Health check",
+      "GET /api/server-info - Get server data",
       "GET /ip-check - Check IP & region",
       "GET /tiktok-business-test - Test Business API",
       "GET /tiktok-events-test - Test Events API",
       "POST /test-track-tiktok - Send test event"
     ]
+  });
+});
+
+/**
+ * Server info - shows what data the server sees
+ * This helps debug what TikTok will receive
+ */
+app.get("/api/server-info", async (req, res) => {
+  const clientIP = getClientIP(req);
+  const userAgent = req.get("User-Agent") || "Unknown";
+  
+  // Try to get location from IP
+  let location = "Unknown";
+  try {
+    const geoResponse = await axios.get(`http://ip-api.com/json/${clientIP}`, {
+      timeout: 3000
+    });
+    if (geoResponse.data && geoResponse.data.status === "success") {
+      location = `${geoResponse.data.city}, ${geoResponse.data.country}`;
+    }
+  } catch (err) {
+    // Ignore geo lookup errors
+  }
+  
+  res.json({
+    clientIP,
+    location,
+    userAgent,
+    headers: {
+      "x-forwarded-for": req.headers["x-forwarded-for"] || "not set",
+      "x-real-ip": req.headers["x-real-ip"] || "not set"
+    },
+    serverTime: new Date().toISOString()
   });
 });
 
@@ -187,11 +221,14 @@ app.post(
       event = "PageView",
       url,
       email,
+      phone,
       value,
       currency,
       // TikTok-specific identifiers for better matching
       ttclid,
-      ttp
+      ttp,
+      // Browser data sent from frontend
+      browserData = {}
     } = req.body;
 
     // Validate required fields
@@ -227,8 +264,27 @@ app.post(
       });
     }
 
-    const eventId = `test_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    
+    // Use client's real IP from request headers (works with Render's proxy)
     const clientIP = getClientIP(req);
+    
+    // Use browser's User-Agent from frontend, fallback to request header
+    const userAgent = browserData.userAgent || req.get("User-Agent") || "Mozilla/5.0";
+    
+    // Generate external_id for user matching (use email hash or generate one)
+    const externalId = email 
+      ? hash(email) 
+      : `user_${crypto.randomBytes(8).toString("hex")}`;
+
+    // Warning flags for debugging
+    const warnings = [];
+    if (!ttp) {
+      warnings.push("Missing _ttp cookie - Load TikTok Pixel first for better matching");
+    }
+    if (!email && !phone) {
+      warnings.push("No email/phone provided - Event matching may be limited");
+    }
 
     const payload = {
       event_source: "web",
@@ -240,26 +296,40 @@ app.post(
           event_time: Math.floor(Date.now() / 1000),
           event_id: eventId,
           page: {
-            url: url || "https://example.com"
+            url: url || "https://example.com",
+            // Include referrer from browser
+            ...(browserData.referrer && browserData.referrer !== "Direct" && { referrer: browserData.referrer })
           },
           user: {
-            user_agent:
-              req.get("User-Agent") ||
-              "Mozilla/5.0 (compatible; TikTokTest/1.0)",
+            // CRITICAL: External ID helps TikTok match server events
+            external_id: externalId,
+            // Use the actual browser's User-Agent
+            user_agent: userAgent,
+            // Use real client IP (Render passes this via x-forwarded-for)
             ip: clientIP,
+            // Locale from browser
+            ...(browserData.language && { locale: browserData.language }),
+            // Hashed email (TikTok requires array format)
             ...(email && { email: [hash(email)] }),
-            // TikTok click ID from URL parameter (ttclid)
+            // Hashed phone (TikTok requires array format)
+            ...(phone && { phone: [hash(phone)] }),
+            // TikTok click ID from URL parameter (ttclid) - IMPORTANT for attribution
             ...(ttclid && { ttclid }),
-            // TikTok browser ID cookie (_ttp)
+            // TikTok browser ID cookie (_ttp) - CRITICAL for server event matching
             ...(ttp && { ttp })
           },
           properties: {
             ...(currency && { currency: currency.toUpperCase() }),
-            ...(value && { value: Number(value) })
+            ...(value && { value: Number(value) }),
+            // Add content_type for better event categorization
+            content_type: "product"
           }
         }
       ]
     };
+    
+    // Log the full payload for debugging
+    console.log("[TikTok Event] Sending:", JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
       `${TIKTOK_API_BASE}/event/track/`,
@@ -273,14 +343,40 @@ app.post(
       }
     );
 
+    // Log TikTok's response
+    console.log("[TikTok Response]", JSON.stringify(response.data));
+
+    // Determine if event was truly successful
+    const tiktokCode = response.data?.code;
+    const isSuccess = tiktokCode === 0;
+
     res.json({
-      success: true,
+      success: isSuccess,
       eventId,
+      // Warnings about potential issues
+      ...(warnings.length > 0 && { warnings }),
+      // Show what data was sent (for debugging)
+      sentData: {
+        event,
+        external_id: externalId.substring(0, 16) + "...",
+        ip: clientIP,
+        userAgent: userAgent.substring(0, 50) + "...",
+        locale: browserData.language || "not set",
+        url: url,
+        ttp: ttp ? ttp.substring(0, 20) + "..." : "NOT SET - Load Pixel first!",
+        ttclid: ttclid || "not present",
+        hasEmail: !!email,
+        hasPhone: !!phone
+      },
       tiktokResponse: {
-        code: response.data?.code,
+        code: tiktokCode,
         message: response.data?.message,
         data: response.data?.data
-      }
+      },
+      // Help text
+      help: !ttp 
+        ? "⚠️ For server events to show in TikTok: 1) Enter Pixel ID 2) Wait for pixel to load 3) Then send event"
+        : "✅ Event sent with _ttp cookie - should appear in TikTok Data Sources"
     });
   })
 );

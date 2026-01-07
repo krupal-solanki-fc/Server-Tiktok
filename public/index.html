@@ -322,6 +322,21 @@
       margin-top: 4px;
     }
 
+    .warning-box {
+      background: rgba(255, 204, 0, 0.1);
+      border: 1px solid var(--warning);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 0.8rem;
+      color: var(--warning);
+    }
+
+    .warning-box strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
     .saved-badge {
       font-size: 0.625rem;
       background: var(--success-glow);
@@ -516,6 +531,14 @@
             <label for="currency">Currency (optional)</label>
             <input type="text" id="currency" placeholder="USD" maxlength="3">
           </div>
+          
+          <!-- Warning for server events without pixel -->
+          <div class="warning-box" id="pixelWarning" style="display: none;">
+            <strong>⚠️ TikTok Pixel not loaded!</strong>
+            For server events to show in TikTok Data Sources, the pixel must be loaded first to set the _ttp cookie.
+            Enter your Pixel ID above and wait for "Pixel loaded" status.
+          </div>
+          
           <button type="submit" class="btn btn-primary" id="submitBtn">
             <span id="btnText">Send Event to TikTok</span>
           </button>
@@ -571,6 +594,32 @@
             <span class="data-value" id="pixelLoaded">No</span>
           </div>
         </div>
+      </div>
+
+      <!-- Server Data Card -->
+      <div class="card response-area">
+        <div class="card-title">Server Data (What TikTok Receives)</div>
+        <div class="browser-data">
+          <div class="data-row">
+            <span class="data-label">Your IP (seen by server)</span>
+            <span class="data-value" id="serverIP">Loading...</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Server Location</span>
+            <span class="data-value" id="serverLocation">Loading...</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">User-Agent to send</span>
+            <span class="data-value" id="serverUA">Will use browser UA</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Locale to send</span>
+            <span class="data-value" id="serverLocale">-</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="refreshServerData" style="margin-top: 16px;">
+          🔄 Refresh Server Data
+        </button>
       </div>
 
       <!-- Response Card -->
@@ -688,6 +737,23 @@
       document.getElementById('ttpCookie').textContent = ttp ? ttp.substring(0, 20) + '...' : 'Not set yet';
       document.getElementById('ttpCookie').className = `data-value ${ttp ? 'success' : 'warning'}`;
       document.getElementById('ttpCookie').title = ttp || '';
+      
+      // Update warning visibility
+      updatePixelWarning();
+    }
+    
+    // Show/hide pixel warning based on tracking mode and pixel status
+    function updatePixelWarning() {
+      const trackingMode = getTrackingMode();
+      const ttp = getTtpCookie();
+      const warningEl = document.getElementById('pixelWarning');
+      
+      // Show warning if using server mode and no _ttp cookie
+      if ((trackingMode === 'server' || trackingMode === 'both') && !ttp && !pixelLoaded) {
+        warningEl.style.display = 'block';
+      } else {
+        warningEl.style.display = 'none';
+      }
     }
 
     // Collect browser data
@@ -803,10 +869,40 @@
       return document.querySelector('input[name="trackingMode"]:checked').value;
     }
 
+    // Fetch and display server data (what TikTok will see)
+    async function fetchServerInfo() {
+      try {
+        document.getElementById('serverIP').textContent = 'Loading...';
+        document.getElementById('serverLocation').textContent = 'Loading...';
+        
+        const response = await fetch('/api/server-info');
+        const data = await response.json();
+        
+        document.getElementById('serverIP').textContent = data.clientIP || 'Unknown';
+        document.getElementById('serverIP').className = `data-value ${data.clientIP !== 'unknown' ? 'success' : 'warning'}`;
+        
+        document.getElementById('serverLocation').textContent = data.location || 'Unknown';
+        document.getElementById('serverLocation').className = `data-value ${data.location !== 'Unknown' ? 'success' : 'warning'}`;
+        
+        // Show that UA will be from browser
+        const browserData = collectBrowserData();
+        document.getElementById('serverUA').textContent = browserData.userAgent.substring(0, 40) + '...';
+        document.getElementById('serverUA').title = browserData.userAgent;
+        
+        document.getElementById('serverLocale').textContent = browserData.language;
+        
+      } catch (error) {
+        document.getElementById('serverIP').textContent = 'Error loading';
+        document.getElementById('serverIP').className = 'data-value warning';
+        document.getElementById('serverLocation').textContent = 'Error';
+      }
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       collectBrowserData();
       loadSavedCredentials();
+      fetchServerInfo(); // Fetch server data on page load
 
       // Update viewport on resize
       window.addEventListener('resize', () => {
@@ -827,8 +923,16 @@
         mode.addEventListener('click', () => {
           document.querySelectorAll('.tracking-mode').forEach(m => m.classList.remove('active'));
           mode.classList.add('active');
+          // Update warning when mode changes
+          updatePixelWarning();
         });
       });
+      
+      // Initial warning check
+      updatePixelWarning();
+
+      // Refresh server data button
+      document.getElementById('refreshServerData').addEventListener('click', fetchServerInfo);
 
       // Periodically check for TikTok cookie
       setInterval(updateTikTokData, 3000);
@@ -877,13 +981,17 @@
             // TikTok-specific data for better matching
             ttclid: browserData.ttclid,
             ttp: browserData.ttp,
-            // Additional browser data
+            // Full browser data - this is what TikTok will show in the portal
             browserData: {
+              // IMPORTANT: Full User-Agent string for TikTok to detect browser/device
+              userAgent: browserData.userAgent,
               screenWidth: browserData.screenWidth,
               screenHeight: browserData.screenHeight,
               language: browserData.language,
               timezone: browserData.timezone,
-              referrer: browserData.referrer
+              referrer: browserData.referrer,
+              platform: browserData.platform,
+              colorDepth: browserData.colorDepth
             }
           };
 
