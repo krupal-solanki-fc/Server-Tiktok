@@ -1,9 +1,18 @@
 import express from "express";
 import axios from "axios";
 import crypto from "crypto";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// ES Module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "public")));
 
 // Trust proxy for correct IP detection behind load balancers
 app.set("trust proxy", true);
@@ -40,18 +49,19 @@ const getClientIP = (req) =>
   "unknown";
 
 /**
- * Root health check
+ * API health check
  */
-app.get("/", (req, res) => {
+app.get("/api", (req, res) => {
   res.json({
     status: "ok",
     service: "tiktok-connectivity-test",
     timestamp: new Date().toISOString(),
     endpoints: [
-      "GET /ip-check",
-      "GET /tiktok-business-test",
-      "GET /tiktok-events-test",
-      "POST /test-track-tiktok"
+      "GET /api - Health check",
+      "GET /ip-check - Check IP & region",
+      "GET /tiktok-business-test - Test Business API",
+      "GET /tiktok-events-test - Test Events API",
+      "POST /test-track-tiktok - Send test event"
     ]
   });
 });
@@ -178,7 +188,10 @@ app.post(
       url,
       email,
       value,
-      currency
+      currency,
+      // TikTok-specific identifiers for better matching
+      ttclid,
+      ttp
     } = req.body;
 
     // Validate required fields
@@ -234,7 +247,11 @@ app.post(
               req.get("User-Agent") ||
               "Mozilla/5.0 (compatible; TikTokTest/1.0)",
             ip: clientIP,
-            ...(email && { email: [hash(email)] })
+            ...(email && { email: [hash(email)] }),
+            // TikTok click ID from URL parameter (ttclid)
+            ...(ttclid && { ttclid }),
+            // TikTok browser ID cookie (_ttp)
+            ...(ttp && { ttp })
           },
           properties: {
             ...(currency && { currency: currency.toUpperCase() }),
@@ -294,23 +311,29 @@ app.use((err, req, res, next) => {
 });
 
 /**
- * 404 handler
+ * 404 handler for API routes
  */
 app.use((req, res) => {
-  res.status(404).json({
-    error: "Not found",
-    path: req.path,
-    availableEndpoints: [
-      "GET /",
-      "GET /ip-check",
-      "GET /tiktok-business-test",
-      "GET /tiktok-events-test",
-      "POST /test-track-tiktok"
-    ]
-  });
+  // Return JSON for API requests, redirect to app for others
+  if (req.path.startsWith("/api") || req.accepts("html") !== "html") {
+    return res.status(404).json({
+      error: "Not found",
+      path: req.path,
+      availableEndpoints: [
+        "GET /api",
+        "GET /ip-check",
+        "GET /tiktok-business-test",
+        "GET /tiktok-events-test",
+        "POST /test-track-tiktok"
+      ]
+    });
+  }
+  // Serve the main app for other routes (SPA fallback)
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/`);
+  console.log(`🌐 Web UI: http://localhost:${PORT}/`);
+  console.log(`📍 API Health: http://localhost:${PORT}/api`);
 });

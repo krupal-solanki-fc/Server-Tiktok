@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok Events Tester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a24;
+      --border: #2a2a3a;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --accent: #fe2c55;
+      --accent-glow: rgba(254, 44, 85, 0.3);
+      --success: #25f4a0;
+      --success-glow: rgba(37, 244, 160, 0.2);
+      --warning: #ffcc00;
+      --cyan: #00f2ea;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(ellipse at 20% 0%, rgba(254, 44, 85, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(0, 242, 234, 0.06) 0%, transparent 50%);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    input::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.5;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #ff6b81);
+      color: white;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px var(--accent-glow);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      margin-top: 12px;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .browser-data {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.8;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-row:last-child {
+      border-bottom: none;
+    }
+
+    .data-label {
+      color: var(--text-secondary);
+    }
+
+    .data-value {
+      color: var(--cyan);
+      text-align: right;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .data-value.warning {
+      color: var(--warning);
+    }
+
+    .data-value.success {
+      color: var(--success);
+    }
+
+    .response-area {
+      grid-column: 1 / -1;
+    }
+
+    .response-box {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .response-box.success {
+      border: 1px solid var(--success);
+      box-shadow: 0 0 20px var(--success-glow);
+    }
+
+    .response-box.error {
+      border: 1px solid var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .status-indicator.success {
+      background: var(--success-glow);
+      color: var(--success);
+    }
+
+    .status-indicator.error {
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .status-indicator::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .saved-badge {
+      font-size: 0.625rem;
+      background: var(--success-glow);
+      color: var(--success);
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+
+    .pixel-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+    }
+
+    .pixel-status.loading {
+      color: var(--warning);
+    }
+
+    .pixel-status.loaded {
+      color: var(--success);
+    }
+
+    .pixel-status.error {
+      color: var(--accent);
+    }
+
+    .pixel-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+
+    .checkbox-group input {
+      width: auto;
+      accent-color: var(--accent);
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .tracking-modes {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .tracking-mode {
+      flex: 1;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .tracking-mode:hover {
+      border-color: var(--accent);
+    }
+
+    .tracking-mode.active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .tracking-mode input {
+      display: none;
+    }
+
+    .tracking-mode-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .tracking-mode-desc {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">📊</div>
+        <h1>TikTok Events Tester</h1>
+      </div>
+      <p class="subtitle">Send test events to TikTok Events API with real browser data</p>
+    </header>
+
+    <div class="grid">
+      <!-- Configuration Card -->
+      <div class="card">
+        <div class="card-title">Configuration</div>
+        
+        <!-- Pixel Status -->
+        <div class="pixel-status" id="pixelStatus">
+          <div class="pixel-dot"></div>
+          <span id="pixelStatusText">Enter Pixel ID to load TikTok Pixel</span>
+        </div>
+
+        <form id="eventForm">
+          <div class="form-group">
+            <label for="pixelId">Pixel ID <span class="saved-badge" id="pixelSaved" style="display:none">Saved</span></label>
+            <input type="text" id="pixelId" placeholder="Enter your TikTok Pixel ID" required>
+            <p class="hint">Pixel will auto-load when you enter the ID</p>
+          </div>
+          <div class="form-group">
+            <label for="accessToken">Access Token <span class="saved-badge" id="tokenSaved" style="display:none">Saved</span></label>
+            <input type="password" id="accessToken" placeholder="Enter your Access Token" required>
+          </div>
+          <div class="form-group">
+            <label for="testEventCode">Test Event Code (optional)</label>
+            <input type="text" id="testEventCode" placeholder="e.g., TEST12345">
+            <p class="hint">Get this from TikTok Events Manager → Test Events</p>
+          </div>
+
+          <!-- Tracking Mode Selection -->
+          <div class="form-group">
+            <label>Tracking Mode</label>
+            <div class="tracking-modes">
+              <label class="tracking-mode active" id="modeServer">
+                <input type="radio" name="trackingMode" value="server" checked>
+                <div class="tracking-mode-label">Server-side</div>
+                <div class="tracking-mode-desc">Events API only</div>
+              </label>
+              <label class="tracking-mode" id="modeBoth">
+                <input type="radio" name="trackingMode" value="both">
+                <div class="tracking-mode-label">Both</div>
+                <div class="tracking-mode-desc">Pixel + Events API</div>
+              </label>
+              <label class="tracking-mode" id="modePixel">
+                <input type="radio" name="trackingMode" value="pixel">
+                <div class="tracking-mode-label">Client-side</div>
+                <div class="tracking-mode-desc">Pixel only</div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="event">Event Type</label>
+            <select id="event">
+              <option value="PageView">PageView</option>
+              <option value="ViewContent">ViewContent</option>
+              <option value="AddToCart">AddToCart</option>
+              <option value="InitiateCheckout">InitiateCheckout</option>
+              <option value="PlaceAnOrder">PlaceAnOrder</option>
+              <option value="CompletePayment">CompletePayment</option>
+              <option value="Contact">Contact</option>
+              <option value="SubmitForm">SubmitForm</option>
+              <option value="Subscribe">Subscribe</option>
+              <option value="CompleteRegistration">CompleteRegistration</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="email">Email (optional, will be hashed)</label>
+            <input type="email" id="email" placeholder="test@example.com">
+          </div>
+          <div class="form-group">
+            <label for="value">Value (optional)</label>
+            <input type="number" id="value" placeholder="99.99" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="currency">Currency (optional)</label>
+            <input type="text" id="currency" placeholder="USD" maxlength="3">
+          </div>
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span id="btnText">Send Event to TikTok</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Browser Data Card -->
+      <div class="card">
+        <div class="card-title">Browser Data (Auto-collected)</div>
+        <div class="browser-data" id="browserData">
+          <div class="data-row">
+            <span class="data-label">User Agent</span>
+            <span class="data-value" id="userAgent">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Screen Size</span>
+            <span class="data-value" id="screenSize">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Viewport</span>
+            <span class="data-value" id="viewport">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Language</span>
+            <span class="data-value" id="language">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Timezone</span>
+            <span class="data-value" id="timezone">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Platform</span>
+            <span class="data-value" id="platform">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Referrer</span>
+            <span class="data-value" id="referrer">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Current URL</span>
+            <span class="data-value" id="currentUrl">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">TikTok Click ID (ttclid)</span>
+            <span class="data-value" id="ttclid">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">TikTok Cookie (_ttp)</span>
+            <span class="data-value" id="ttpCookie">-</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Pixel Loaded</span>
+            <span class="data-value" id="pixelLoaded">No</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Card -->
+      <div class="card response-area" id="responseCard" style="display:none">
+        <div class="card-title">
+          Response
+          <span class="status-indicator" id="statusIndicator"></span>
+        </div>
+        <div class="response-box" id="responseBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TikTok Pixel Base Code (loaded dynamically) -->
+  <script>
+    // TikTok Pixel loader
+    let pixelLoaded = false;
+    let currentPixelId = null;
+
+    function loadTikTokPixel(pixelId) {
+      if (pixelLoaded && currentPixelId === pixelId) return;
+      
+      // Update status
+      updatePixelStatus('loading', 'Loading TikTok Pixel...');
+
+      // TikTok Pixel Base Code
+      !function (w, d, t) {
+        w.TiktokAnalyticsObject = t;
+        var ttq = w[t] = w[t] || [];
+        ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+        ttq.setAndDefer = function (t, e) {
+          t[e] = function () {
+            t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+          };
+        };
+        for (var i = 0; i < ttq.methods.length; i++) {
+          ttq.setAndDefer(ttq, ttq.methods[i]);
+        }
+        ttq.instance = function (t) {
+          for (var e = ttq._i[t] || [], n = 0; n < ttq.methods.length; n++) {
+            ttq.setAndDefer(e, ttq.methods[n]);
+          }
+          return e;
+        };
+        ttq.load = function (e, n) {
+          var i = "https://analytics.tiktok.com/i18n/pixel/events.js";
+          ttq._i = ttq._i || {};
+          ttq._i[e] = [];
+          ttq._i[e]._u = i;
+          ttq._t = ttq._t || {};
+          ttq._t[e] = +new Date();
+          ttq._o = ttq._o || {};
+          ttq._o[e] = n || {};
+          var o = document.createElement("script");
+          o.type = "text/javascript";
+          o.async = true;
+          o.src = i + "?sdkid=" + e + "&lib=" + t;
+          var a = document.getElementsByTagName("script")[0];
+          a.parentNode.insertBefore(o, a);
+        };
+
+        // Load the pixel with the provided ID
+        ttq.load(pixelId);
+        ttq.page();
+        
+        pixelLoaded = true;
+        currentPixelId = pixelId;
+
+        // Update status after a short delay to allow script to load
+        setTimeout(() => {
+          if (window.ttq) {
+            updatePixelStatus('loaded', `Pixel loaded: ${pixelId}`);
+            document.getElementById('pixelLoaded').textContent = 'Yes';
+            document.getElementById('pixelLoaded').className = 'data-value success';
+            updateTikTokData();
+          }
+        }, 1500);
+
+      }(window, document, 'ttq');
+    }
+
+    function updatePixelStatus(status, text) {
+      const statusEl = document.getElementById('pixelStatus');
+      const textEl = document.getElementById('pixelStatusText');
+      statusEl.className = `pixel-status ${status}`;
+      textEl.textContent = text;
+    }
+
+    // Get TikTok click ID from URL
+    function getTtclid() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('ttclid') || null;
+    }
+
+    // Get TikTok cookie
+    function getTtpCookie() {
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === '_ttp') {
+          return value;
+        }
+      }
+      return null;
+    }
+
+    // Update TikTok-specific data in UI
+    function updateTikTokData() {
+      const ttclid = getTtclid();
+      const ttp = getTtpCookie();
+      
+      document.getElementById('ttclid').textContent = ttclid || 'Not present';
+      document.getElementById('ttclid').className = `data-value ${ttclid ? 'success' : 'warning'}`;
+      
+      document.getElementById('ttpCookie').textContent = ttp ? ttp.substring(0, 20) + '...' : 'Not set yet';
+      document.getElementById('ttpCookie').className = `data-value ${ttp ? 'success' : 'warning'}`;
+      document.getElementById('ttpCookie').title = ttp || '';
+    }
+
+    // Collect browser data
+    function collectBrowserData() {
+      const data = {
+        userAgent: navigator.userAgent,
+        screenWidth: screen.width,
+        screenHeight: screen.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        language: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        platform: navigator.platform || navigator.userAgentData?.platform || 'Unknown',
+        cookiesEnabled: navigator.cookieEnabled,
+        referrer: document.referrer || 'Direct',
+        url: window.location.href,
+        colorDepth: screen.colorDepth,
+        ttclid: getTtclid(),
+        ttp: getTtpCookie()
+      };
+
+      // Update UI
+      document.getElementById('userAgent').textContent = data.userAgent.substring(0, 40) + '...';
+      document.getElementById('userAgent').title = data.userAgent;
+      document.getElementById('screenSize').textContent = `${data.screenWidth} × ${data.screenHeight}`;
+      document.getElementById('viewport').textContent = `${data.viewportWidth} × ${data.viewportHeight}`;
+      document.getElementById('language').textContent = data.language;
+      document.getElementById('timezone').textContent = data.timezone;
+      document.getElementById('platform').textContent = data.platform;
+      document.getElementById('referrer').textContent = data.referrer || 'None';
+      document.getElementById('currentUrl').textContent = data.url.substring(0, 30) + '...';
+      document.getElementById('currentUrl').title = data.url;
+
+      updateTikTokData();
+
+      return data;
+    }
+
+    // Load saved credentials
+    function loadSavedCredentials() {
+      const pixelId = localStorage.getItem('tiktok_pixel_id');
+      const accessToken = localStorage.getItem('tiktok_access_token');
+      const testEventCode = localStorage.getItem('tiktok_test_event_code');
+
+      if (pixelId) {
+        document.getElementById('pixelId').value = pixelId;
+        document.getElementById('pixelSaved').style.display = 'inline';
+        // Auto-load pixel if we have a saved ID
+        loadTikTokPixel(pixelId);
+      }
+      if (accessToken) {
+        document.getElementById('accessToken').value = accessToken;
+        document.getElementById('tokenSaved').style.display = 'inline';
+      }
+      if (testEventCode) {
+        document.getElementById('testEventCode').value = testEventCode;
+      }
+    }
+
+    // Save credentials
+    function saveCredentials() {
+      localStorage.setItem('tiktok_pixel_id', document.getElementById('pixelId').value);
+      localStorage.setItem('tiktok_access_token', document.getElementById('accessToken').value);
+      localStorage.setItem('tiktok_test_event_code', document.getElementById('testEventCode').value);
+    }
+
+    // Show response
+    function showResponse(data, isSuccess) {
+      const card = document.getElementById('responseCard');
+      const box = document.getElementById('responseBox');
+      const indicator = document.getElementById('statusIndicator');
+
+      card.style.display = 'block';
+      box.textContent = JSON.stringify(data, null, 2);
+      box.className = `response-box ${isSuccess ? 'success' : 'error'}`;
+      indicator.className = `status-indicator ${isSuccess ? 'success' : 'error'}`;
+      indicator.textContent = isSuccess ? 'Success' : 'Error';
+
+      card.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Set loading state
+    function setLoading(loading) {
+      const btn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+
+      btn.disabled = loading;
+      if (loading) {
+        btnText.innerHTML = '<div class="spinner"></div> Sending...';
+      } else {
+        btnText.textContent = 'Send Event to TikTok';
+      }
+    }
+
+    // Track event via TikTok Pixel (client-side)
+    function trackViaPixel(eventName, eventData) {
+      if (!window.ttq) {
+        console.warn('TikTok Pixel not loaded');
+        return false;
+      }
+
+      const params = {};
+      if (eventData.value) params.value = Number(eventData.value);
+      if (eventData.currency) params.currency = eventData.currency.toUpperCase();
+      if (eventData.email) params.email = eventData.email;
+
+      window.ttq.track(eventName, params);
+      return true;
+    }
+
+    // Get selected tracking mode
+    function getTrackingMode() {
+      return document.querySelector('input[name="trackingMode"]:checked').value;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      collectBrowserData();
+      loadSavedCredentials();
+
+      // Update viewport on resize
+      window.addEventListener('resize', () => {
+        document.getElementById('viewport').textContent = 
+          `${window.innerWidth} × ${window.innerHeight}`;
+      });
+
+      // Load pixel when ID is entered
+      document.getElementById('pixelId').addEventListener('blur', (e) => {
+        const pixelId = e.target.value.trim();
+        if (pixelId && pixelId.length > 5) {
+          loadTikTokPixel(pixelId);
+        }
+      });
+
+      // Tracking mode selection
+      document.querySelectorAll('.tracking-mode').forEach(mode => {
+        mode.addEventListener('click', () => {
+          document.querySelectorAll('.tracking-mode').forEach(m => m.classList.remove('active'));
+          mode.classList.add('active');
+        });
+      });
+
+      // Periodically check for TikTok cookie
+      setInterval(updateTikTokData, 3000);
+    });
+
+    // Form submission
+    document.getElementById('eventForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      const browserData = collectBrowserData();
+      saveCredentials();
+
+      const eventName = document.getElementById('event').value;
+      const trackingMode = getTrackingMode();
+      const results = { mode: trackingMode };
+
+      const eventData = {
+        email: document.getElementById('email').value || undefined,
+        value: document.getElementById('value').value || undefined,
+        currency: document.getElementById('currency').value || undefined
+      };
+
+      try {
+        // Client-side tracking (Pixel)
+        if (trackingMode === 'pixel' || trackingMode === 'both') {
+          if (pixelLoaded) {
+            trackViaPixel(eventName, eventData);
+            results.pixel = { success: true, message: 'Event sent via TikTok Pixel' };
+          } else {
+            results.pixel = { success: false, message: 'Pixel not loaded' };
+          }
+        }
+
+        // Server-side tracking (Events API)
+        if (trackingMode === 'server' || trackingMode === 'both') {
+          const payload = {
+            pixelId: document.getElementById('pixelId').value,
+            accessToken: document.getElementById('accessToken').value,
+            testEventCode: document.getElementById('testEventCode').value || undefined,
+            event: eventName,
+            email: eventData.email,
+            value: eventData.value,
+            currency: eventData.currency,
+            url: browserData.url,
+            // TikTok-specific data for better matching
+            ttclid: browserData.ttclid,
+            ttp: browserData.ttp,
+            // Additional browser data
+            browserData: {
+              screenWidth: browserData.screenWidth,
+              screenHeight: browserData.screenHeight,
+              language: browserData.language,
+              timezone: browserData.timezone,
+              referrer: browserData.referrer
+            }
+          };
+
+          const response = await fetch('/test-track-tiktok', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          results.server = data;
+        }
+
+        const isSuccess = (results.pixel?.success !== false) && (results.server?.success !== false);
+        showResponse(results, isSuccess);
+      } catch (error) {
+        showResponse({ error: error.message }, false);
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
