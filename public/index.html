@@ -848,20 +848,32 @@
       }
     }
 
+    // Generate unique event ID for deduplication
+    function generateEventId() {
+      return `evt_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    }
+
     // Track event via TikTok Pixel (client-side)
-    function trackViaPixel(eventName, eventData) {
+    function trackViaPixel(eventName, eventData, eventId) {
       if (!window.ttq) {
         console.warn('TikTok Pixel not loaded');
-        return false;
+        return { success: false, message: 'Pixel not loaded' };
       }
 
-      const params = {};
+      const params = {
+        // REQUIRED: event_id for deduplication with server events
+        event_id: eventId
+      };
+      
+      // Add optional parameters
       if (eventData.value) params.value = Number(eventData.value);
       if (eventData.currency) params.currency = eventData.currency.toUpperCase();
       if (eventData.email) params.email = eventData.email;
+      if (eventData.content_type) params.content_type = eventData.content_type;
 
+      console.log('[TikTok Pixel] Tracking:', eventName, params);
       window.ttq.track(eventName, params);
-      return true;
+      return { success: true, eventId, message: 'Event sent via Pixel' };
     }
 
     // Get selected tracking mode
@@ -948,22 +960,31 @@
 
       const eventName = document.getElementById('event').value;
       const trackingMode = getTrackingMode();
-      const results = { mode: trackingMode };
+      
+      // Generate a SINGLE event_id for BOTH pixel and server (for deduplication)
+      const eventId = generateEventId();
+      
+      const results = { 
+        mode: trackingMode,
+        eventId: eventId  // Show the shared event ID
+      };
 
       const eventData = {
         email: document.getElementById('email').value || undefined,
         value: document.getElementById('value').value || undefined,
-        currency: document.getElementById('currency').value || undefined
+        currency: document.getElementById('currency').value || undefined,
+        content_type: 'product'
       };
 
       try {
         // Client-side tracking (Pixel)
         if (trackingMode === 'pixel' || trackingMode === 'both') {
           if (pixelLoaded) {
-            trackViaPixel(eventName, eventData);
-            results.pixel = { success: true, message: 'Event sent via TikTok Pixel' };
+            // Pass the event_id to the pixel for deduplication
+            const pixelResult = trackViaPixel(eventName, eventData, eventId);
+            results.pixel = pixelResult;
           } else {
-            results.pixel = { success: false, message: 'Pixel not loaded' };
+            results.pixel = { success: false, message: 'Pixel not loaded - enter Pixel ID first' };
           }
         }
 
@@ -974,6 +995,8 @@
             accessToken: document.getElementById('accessToken').value,
             testEventCode: document.getElementById('testEventCode').value || undefined,
             event: eventName,
+            // Pass the SAME event_id for deduplication
+            eventId: eventId,
             email: eventData.email,
             value: eventData.value,
             currency: eventData.currency,
@@ -981,9 +1004,8 @@
             // TikTok-specific data for better matching
             ttclid: browserData.ttclid,
             ttp: browserData.ttp,
-            // Full browser data - this is what TikTok will show in the portal
+            // Full browser data
             browserData: {
-              // IMPORTANT: Full User-Agent string for TikTok to detect browser/device
               userAgent: browserData.userAgent,
               screenWidth: browserData.screenWidth,
               screenHeight: browserData.screenHeight,

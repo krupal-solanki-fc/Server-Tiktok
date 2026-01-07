@@ -219,6 +219,8 @@ app.post(
       accessToken,
       testEventCode,
       event = "PageView",
+      // Event ID from frontend (for deduplication with pixel events)
+      eventId: frontendEventId,
       url,
       email,
       phone,
@@ -264,7 +266,8 @@ app.post(
       });
     }
 
-    const   eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    // Use frontend's event_id if provided (for deduplication), otherwise generate one
+    const eventId = frontendEventId || `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     
     // Use client's real IP from request headers (works with Render's proxy)
     const clientIP = getClientIP(req);
