@@ -226,6 +226,11 @@ app.post(
       phone,
       value,
       currency,
+      // Content parameters (IMPORTANT for TikTok)
+      contentId,
+      contentType = "product",
+      contentName,
+      quantity,
       // TikTok-specific identifiers for better matching
       ttclid,
       ttp,
@@ -305,6 +310,18 @@ app.post(
     if (ttclid) userObject.ttclid = ttclid;
     if (ttp) userObject.ttp = ttp;
 
+    // Build contents array for product data
+    const contents = [];
+    if (contentId) {
+      contents.push({
+        content_id: contentId,
+        content_type: contentType || "product",
+        content_name: contentName || "Product",
+        quantity: quantity ? Number(quantity) : 1,
+        price: value ? Number(value) : undefined
+      });
+    }
+
     const payload = {
       event_source: "web",
       event_source_id: pixelId,
@@ -320,9 +337,16 @@ app.post(
           },
           user: userObject,
           properties: {
+            // Currency and value
             ...(currency && { currency: currency.toUpperCase() }),
             ...(value && { value: Number(value) }),
-            content_type: "product"
+            // Content parameters (REQUIRED for proper tracking)
+            content_type: contentType || "product",
+            ...(contentId && { content_id: contentId }),
+            ...(contentName && { content_name: contentName }),
+            ...(quantity && { num_items: Number(quantity) }),
+            // Contents array (for multiple products)
+            ...(contents.length > 0 && { contents })
           }
         }
       ]

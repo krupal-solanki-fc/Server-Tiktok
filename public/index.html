@@ -853,6 +853,11 @@
       return `evt_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
     }
 
+    // Generate content ID (for product tracking)
+    function generateContentId() {
+      return `content_${Date.now()}`;
+    }
+
     // Track event via TikTok Pixel (client-side)
     function trackViaPixel(eventName, eventData, eventId) {
       if (!window.ttq) {
@@ -860,20 +865,36 @@
         return { success: false, message: 'Pixel not loaded' };
       }
 
-      const params = {
-        // REQUIRED: event_id for deduplication with server events
-        event_id: eventId
+      // Event properties (what you're tracking)
+      const properties = {
+        // Content parameters
+        content_id: eventData.content_id || generateContentId(),
+        content_type: eventData.content_type || 'product',
+        content_name: eventData.content_name || 'Test Product'
       };
       
       // Add optional parameters
-      if (eventData.value) params.value = Number(eventData.value);
-      if (eventData.currency) params.currency = eventData.currency.toUpperCase();
-      if (eventData.email) params.email = eventData.email;
-      if (eventData.content_type) params.content_type = eventData.content_type;
+      if (eventData.value) properties.value = Number(eventData.value);
+      if (eventData.currency) properties.currency = eventData.currency.toUpperCase();
+      if (eventData.quantity) properties.quantity = Number(eventData.quantity);
 
-      console.log('[TikTok Pixel] Tracking:', eventName, params);
-      window.ttq.track(eventName, params);
-      return { success: true, eventId, message: 'Event sent via Pixel' };
+      // Options object with event_id for deduplication
+      // TikTok Pixel requires event_id in the OPTIONS parameter (3rd argument)
+      const options = {
+        event_id: eventId
+      };
+
+      console.log('[TikTok Pixel] Tracking:', eventName, 'Properties:', properties, 'Options:', options);
+      
+      // CORRECT FORMAT: ttq.track(eventName, properties, options)
+      window.ttq.track(eventName, properties, options);
+      
+      return { 
+        success: true, 
+        eventId, 
+        contentId: properties.content_id,
+        message: 'Event sent via Pixel with event_id in options' 
+      };
     }
 
     // Get selected tracking mode
@@ -969,11 +990,17 @@
         eventId: eventId  // Show the shared event ID
       };
 
+      // Generate content_id for this event (shared between pixel and server)
+      const contentId = generateContentId();
+      
       const eventData = {
         email: document.getElementById('email').value || undefined,
         value: document.getElementById('value').value || undefined,
         currency: document.getElementById('currency').value || undefined,
-        content_type: 'product'
+        content_type: 'product',
+        content_id: contentId,
+        content_name: 'Test Product',
+        quantity: 1
       };
 
       try {
@@ -1000,6 +1027,11 @@
             email: eventData.email,
             value: eventData.value,
             currency: eventData.currency,
+            // Content parameters (IMPORTANT for TikTok matching)
+            contentId: eventData.content_id,
+            contentType: eventData.content_type,
+            contentName: eventData.content_name,
+            quantity: eventData.quantity,
             url: browserData.url,
             // TikTok-specific data for better matching
             ttclid: browserData.ttclid,
