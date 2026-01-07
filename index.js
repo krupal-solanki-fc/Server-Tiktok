@@ -264,7 +264,7 @@ app.post(
       });
     }
 
-    const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const   eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     
     // Use client's real IP from request headers (works with Render's proxy)
     const clientIP = getClientIP(req);
@@ -286,6 +286,22 @@ app.post(
       warnings.push("No email/phone provided - Event matching may be limited");
     }
 
+    // Build user object - TikTok field names must be exact
+    const userObject = {
+      // Use the actual browser's User-Agent (REQUIRED)
+      user_agent: userAgent,
+      // Use real client IP (REQUIRED for web events)
+      ip: clientIP
+    };
+    
+    // Add optional user identifiers (at least one helps with matching)
+    if (externalId) userObject.external_id = externalId;
+    if (browserData.language) userObject.locale = browserData.language;
+    if (email) userObject.email = [hash(email)];
+    if (phone) userObject.phone_number = [hash(phone)]; // NOTE: TikTok uses phone_number, not phone
+    if (ttclid) userObject.ttclid = ttclid;
+    if (ttp) userObject.ttp = ttp;
+
     const payload = {
       event_source: "web",
       event_source_id: pixelId,
@@ -297,31 +313,12 @@ app.post(
           event_id: eventId,
           page: {
             url: url || "https://example.com",
-            // Include referrer from browser
             ...(browserData.referrer && browserData.referrer !== "Direct" && { referrer: browserData.referrer })
           },
-          user: {
-            // CRITICAL: External ID helps TikTok match server events
-            external_id: externalId,
-            // Use the actual browser's User-Agent
-            user_agent: userAgent,
-            // Use real client IP (Render passes this via x-forwarded-for)
-            ip: clientIP,
-            // Locale from browser
-            ...(browserData.language && { locale: browserData.language }),
-            // Hashed email (TikTok requires array format)
-            ...(email && { email: [hash(email)] }),
-            // Hashed phone (TikTok requires array format)
-            ...(phone && { phone: [hash(phone)] }),
-            // TikTok click ID from URL parameter (ttclid) - IMPORTANT for attribution
-            ...(ttclid && { ttclid }),
-            // TikTok browser ID cookie (_ttp) - CRITICAL for server event matching
-            ...(ttp && { ttp })
-          },
+          user: userObject,
           properties: {
             ...(currency && { currency: currency.toUpperCase() }),
             ...(value && { value: Number(value) }),
-            // Add content_type for better event categorization
             content_type: "product"
           }
         }
@@ -355,28 +352,40 @@ app.post(
       eventId,
       // Warnings about potential issues
       ...(warnings.length > 0 && { warnings }),
-      // Show what data was sent (for debugging)
-      sentData: {
-        event,
-        external_id: externalId.substring(0, 16) + "...",
-        ip: clientIP,
-        userAgent: userAgent.substring(0, 50) + "...",
-        locale: browserData.language || "not set",
-        url: url,
-        ttp: ttp ? ttp.substring(0, 20) + "..." : "NOT SET - Load Pixel first!",
-        ttclid: ttclid || "not present",
-        hasEmail: !!email,
-        hasPhone: !!phone
-      },
-      tiktokResponse: {
-        code: tiktokCode,
-        message: response.data?.message,
-        data: response.data?.data
+      // Full TikTok response for debugging
+      tiktokResponse: response.data,
+      // Full payload that was sent (for debugging)
+      payloadSent: {
+        event_source: payload.event_source,
+        event_source_id: payload.event_source_id,
+        test_event_code: payload.test_event_code || "NOT SET",
+        event: payload.data[0].event,
+        event_time: payload.data[0].event_time,
+        event_id: payload.data[0].event_id,
+        page_url: payload.data[0].page.url,
+        user: {
+          ip: userObject.ip,
+          user_agent: userObject.user_agent?.substring(0, 50) + "...",
+          external_id: userObject.external_id ? "SET" : "NOT SET",
+          email: userObject.email ? "HASHED" : "NOT SET",
+          phone_number: userObject.phone_number ? "HASHED" : "NOT SET",
+          ttp: userObject.ttp || "NOT SET ⚠️",
+          ttclid: userObject.ttclid || "NOT SET",
+          locale: userObject.locale || "NOT SET"
+        }
       },
       // Help text
       help: !ttp 
-        ? "⚠️ For server events to show in TikTok: 1) Enter Pixel ID 2) Wait for pixel to load 3) Then send event"
-        : "✅ Event sent with _ttp cookie - should appear in TikTok Data Sources"
+        ? "⚠️ _ttp cookie missing! Load TikTok Pixel first. Server events won't show without it."
+        : "✅ _ttp cookie included - event should appear in TikTok Data Sources within minutes",
+      // Additional debug info
+      debug: {
+        timestamp: new Date().toISOString(),
+        testEventCodeUsed: !!testEventCode,
+        note: testEventCode 
+          ? "Check TikTok Events Manager → Test Events tab" 
+          : "Check TikTok Events Manager → Overview (may take 20+ mins to appear)"
+      }
     });
   })
 );
